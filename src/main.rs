@@ -106,23 +106,11 @@ fn run() -> Result<()> {
         !stop.load(Ordering::Relaxed)
             && (options.seconds == 0 || started.elapsed() < Duration::from_secs(options.seconds))
     };
-    while running() {
-        let result = connected(&options.socket, &mut model, &running);
-        model.disconnected();
-        if !running() {
-            break;
-        }
-        if let Err(error) = result {
-            eprintln!("XR_DOCK_DISCONNECTED={error:#}");
-        }
-        for _ in 0..5 {
-            if !running() {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(100));
-        }
-    }
+    let result = connected(&options.socket, &mut model, &running);
+    model.disconnected();
     model.cancel();
+    // A connection failure is distinct from an announced Shell shutdown.
+    result?;
     println!("XR_DOCK_EXIT=0");
     Ok(())
 }
@@ -163,6 +151,10 @@ fn connected(socket: &Path, model: &mut Model, running: &dyn Fn() -> bool) -> Re
                 .context("missing message type")?;
             let payload = &packet.message["payload"];
             match kind {
+                "SessionEnding" => {
+                    println!("XR_DOCK_SESSION_ENDING={payload}");
+                    break;
+                }
                 "Snapshot" | "StateChanged" => {
                     if model.snapshot(payload, kind == "StateChanged")? {
                         dirty = true;

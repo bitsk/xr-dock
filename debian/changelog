@@ -1,3 +1,10 @@
+xr-dock (0.1.1) unstable; urgency=medium
+
+  * Exit successfully when Shell announces SessionEnding.
+  * Report unexpected disconnections as failures after clearing local state.
+
+ -- bits <bigbits@hackx.cc>  Wed, 04 Nov 2026 00:18:13 +0800
+
 xr-dock (0.1.0) unstable; urgency=medium
 
   * Add the independent scene-client application and task dock.

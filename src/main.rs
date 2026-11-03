@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 mod catalog;
+mod clock;
 mod model;
+mod tasks;
 
 use anyhow::{Context, Result, bail};
 use model::{Intent, Model};
@@ -23,6 +25,7 @@ struct Options {
     app_dirs: Vec<PathBuf>,
     pins: Vec<String>,
     list: bool,
+    list_pins: bool,
 }
 fn options() -> Result<Option<Options>> {
     let runtime = env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
@@ -34,6 +37,7 @@ fn options() -> Result<Option<Options>> {
         app_dirs: Vec::new(),
         pins: Vec::new(),
         list: false,
+        list_pins: false,
     };
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -52,9 +56,10 @@ fn options() -> Result<Option<Options>> {
                 .pins
                 .push(args.next().context("--pin requires a desktop ID")?),
             "--list-apps" => o.list = true,
+            "--list-pins" => o.list_pins = true,
             "--help" | "-h" => {
                 println!(
-                    "xr-dock [--socket PATH] [--seconds N] [--apps-dir DIR ...] [--pin APP.desktop ...] [--list-apps]\n\
+                    "xr-dock [--socket PATH] [--seconds N] [--apps-dir DIR ...] [--pin APP.desktop ...] [--list-apps|--list-pins]\n\
                     Uses the Shell scene SDK; task/workspace state comes only from its snapshots.\n\
                     A custom --apps-dir replaces the normal XDG application directory list."
                 );
@@ -96,6 +101,10 @@ fn run() -> Result<()> {
         return Ok(());
     }
     let pins = catalog::pinned(&apps, &options.pins);
+    if options.list_pins {
+        println!("{}", serde_json::to_string_pretty(&pins)?);
+        return Ok(());
+    }
     println!("XR_DOCK_CATALOG apps={} pinned={}", apps.len(), pins.len());
     let mut model = Model::new(apps, pins);
     let stop = Arc::new(AtomicBool::new(false));
@@ -143,6 +152,7 @@ fn connected(socket: &Path, model: &mut Model, running: &dyn Fn() -> bool) -> Re
     let mut resync_requested = true;
     client.send("GetSnapshot", json!({}), &[])?;
     while running() {
+        dirty |= model.tick_clock();
         if let Some(packet) = client.recv(100)? {
             if !packet.fds.is_empty() {
                 bail!("unexpected FD on Dock control channel");
@@ -176,6 +186,9 @@ fn connected(socket: &Path, model: &mut Model, running: &dyn Fn() -> bool) -> Re
                     if model.awaiting_snapshot && !resync_requested {
                         client.send("GetSnapshot", json!({}), &[])?;
                         resync_requested = true;
+                    }
+                    if let Some(intent) = model.ready_intent() {
+                        send_intent(&mut client, intent)?;
                     }
                 }
                 "SceneApplied" => {
@@ -263,19 +276,7 @@ fn send_intent(client: &mut Client, intent: Intent) -> Result<()> {
             "WindowIntent",
             json!({"intent":"focus","surface_id":w.surface_id,"window_server_generation":w.window_server_generation}),
         ),
-        Intent::Close(w) => (
-            "WindowIntent",
-            json!({"intent":"close","surface_id":w.surface_id,"window_server_generation":w.window_server_generation}),
-        ),
         Intent::Workspace(workspace) => ("WorkspaceIntent", json!({"workspace":workspace})),
-        Intent::Component {
-            role,
-            panel,
-            intent,
-        } => (
-            "ComponentIntent",
-            json!({"role":role,"panel":panel,"intent":intent}),
-        ),
     };
     let request = client.send(kind, payload.clone(), &[])?;
     println!("XR_DOCK_INTENT request={request} type={kind} payload={payload}");

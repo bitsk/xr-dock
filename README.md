@@ -1,41 +1,40 @@
 # xr-dock
 
-独立的 Rust 空间任务栏。它通过唯一 `xr-shell-protocols` SDK 与 Shell 通信，使用 `xr-spatial-kit` 场景和控件，不创建 OpenXR session、不执行应用的 Exec 命令，也不控制硬件。
+独立 Rust 空间桌面客户端，负责三岛任务栏的左信息岛与中央应用岛。右状态岛由 xr-system-ui 负责，几何来自唯一 `xr-spatial-kit::taskbar` 合同；材质、字形、图标与命中渲染由 Shell 负责。本仓不创建 OpenXR session，不执行应用 Exec，不接管 Wayland 或系统服务。
 
-## 功能与状态权威
+外观以 Kit 中先行提交的 `design/qingkong-controls/control-library.png` 为准：晴空浅雾银、墨蓝文字、通透圆角胶囊。信息岛和应用岛分别有自己的背景，中间保留真实空间间隔。
 
-- 从 XDG `.desktop` 清单读取实际应用，支持目录优先级、Hidden/NoDisplay、OnlyShowIn/NotShowIn、中文名称和图标标识。默认固定已发现的文件管理器、终端和浏览器，可用 `--pin` 选择。
-- 默认单排54.4px高的两端胶囊，STAGE位置 `[0,.86,-1.72]`，pitch `+12°`；左侧四个真实工作区以小圆点表示，当前项为蓝色横向小胶囊，中间只显示实际运行的当前工作区窗口标签，右侧系统图标按钮通过 `ComponentIntent` 切换控制中心。无任务时提供紧凑应用库图标入口。
-- 应用库是按需展开的独立空间 Group，默认隐藏。接收 `ComponentCommand {role:"dock",panel:"launcher",intent:"show"|"hide"|"toggle"}`；固定应用和分页清单按钮发送 `WindowIntent launch`，由 Shell/窗口服务执行真实启动。Dock 仅发送 app ID，不把文件名或命令当 shell 字符串执行。
-- 从 Shell Snapshot/连续 StateChanged 构建任务和四个工作区。仅 toplevel 列为任务，popup、subsurface 和输入法候选不作为新任务。工作区窗口数、焦点、关闭完成都以服务端状态为准。
-- 任务按钮发送 focus，关闭按钮发送 close，工作区按钮发送 WorkspaceIntent；不会乐观删除窗口或伪造启动成功。任务和应用都支持分页。
-- Kit 控件按同一 capture/interaction 的 press/release 激活，Cancel 清理状态。连续状态 revision 缺号时请求快照；scene revision 等 Shell ack 后再推进。
-- SDK 断开时清除场景缓存、capture 和任务缓存。收到 Shell `SessionEnding`、SIGINT/SIGTERM 或运行时限结束后正常退出；未预告的连接/协议错误退出 1，由会话管理者决定是否重启。Shell 根据连接生命周期退役本组件场景。
+## 行为与真实状态
 
-玻璃、按钮和文字使用 Kit 的暗色空间 tokens；不会跟随宿主浅色主题变成白底。图标来自实际 `.desktop` 的主题资源 ID，系统按钮使用 freedesktop/UKUI 资源名，由 Shell 解析真实 SVG/PNG；不以大块文字模拟图标。
-
-显示由 Shell 的真实渲染/字形后端完成；本仓只发送几何、文本和样式标识。图标 ID 是主题资源名，绝对图标路径不作为场景资源发送。
+- 左信息岛显示真实本地 HH:MM、日期和星期，使用系统时区；仅在分钟变化时触发时钟 scene 更新。没有天气提供者时不展示温度或天气图标。
+- 中央启动器始终可用。默认固定应用按文件管理器、浏览器、文档编辑器、视频、终端、设置的顺序，从真实可见 `.desktop` 文件匹配，最多六项；缺失角色不占假图标。支持 Peony、Firefox、Pluma、QTerminal、UKUI Control Center 等真实 ID 与分类回退。
+- 已匹配角色使用 Kit 的 `ukui-xr-files/browser/document/media/terminal/settings` 图稿语义资源；自选 pin 和其他运行应用继续使用实际主题图标。中央按钮无文字，图标尺寸由 `dock.app-icon` 样式限定；焦点使用 `dock.active-icon`，独立蓝点只表示真实运行状态。
+- Shell Snapshot/连续 StateChanged 是窗口和工作区的唯一权威。仅 toplevel 聚合为应用图标，popup、subsurface 和输入法候选不成为任务。聚合匹配真实 desktop ID、StartupWMClass 或唯一名称后缀；不构造虚假的 launch ID。
+- 固定应用始终可见，额外运行应用分页。单窗口点击直接聚焦；多实例按需展开窗口选择面板，每个真实窗口均有分页入口，任务栏不默认展示大窗口标题或逐应用关闭 X。窗口关闭由 Shell 的窗口 Orb 处理，任务图标随实际快照回收。
+- 四个紧凑工作区点保留真实 WorkspaceIntent。选择其他工作区的窗口时，先发送工作区请求，待权威快照确认切换后再发送该 generation/surface 的 focus；不会乐观修改焦点或工作区。
+- 应用库是按需展开的独立 Group，保留固定应用和全应用分页，发送真实 `WindowIntent launch`。收到 `ComponentCommand {role:"dock",panel:"launcher",intent:"show"|"hide"|"toggle"}` 也可打开/收起。启动和聚焦结果以实际窗口状态为准。
+- Kit 控件按同一 capture 的 press/release 激活，Cancel 清理；revision 缺号请求快照，scene 等待 ack。收到 SessionEnding 正常退出；未预告的连接或协议错误清理后退出 1，由会话管理者决定是否重启。
 
 ## 构建
 
-兄弟仓默认布局：
+相邻源码布局：
 
 ```text
-xr-shell/protocols/  xr-shell-protocols 0.2.0
-xr-spatial-kit/      xr-spatial-kit 0.2.1
+xr-shell/protocols/  xr-shell-protocols 0.2.0 Rust crate
+xr-spatial-kit/      xr-spatial-kit 0.2.2
 xr-dock/
 ```
 
 ```sh
 cargo build --release --locked --offline
-# 独立源码包或已安装SDK：
+# 显式选择源码 SDK 或已安装的开发源码包：
 XR_SHELL_PROTOCOLS_DIR=/work/sdk/xr-shell-protocols \
 XR_SPATIAL_KIT_DIR=/work/sdk/xr-spatial-kit python3 tools/build.py
 ```
 
-`tools/build.py` 在私有 build 目录生成 manifest，原仓库 manifest/lock 不变，不复制协议源码。未指定时使用兄弟仓，再查找 `/usr/share/cargo/registry/<package>-<version>`。Cargo.lock、SDK/Kit 来源提交与产物摘要应由组合 manifest 固定；path 依赖本身不能代替源码提交锁。构建前准备校验后的离线 Cargo 缓存。
+`tools/build.py` 在私有 build 目录生成 manifest，不修改原 manifest/lock、不复制协议源码。Cargo.lock、SDK/Kit 提交与产物摘要由集成锁固定；path 本身不替代提交锁。构建前准备经过校验的离线 registry 缓存。
 
-`dpkg-buildpackage -us -uc -b` 构建独立包，Build-Depends 包括两个源码 SDK。只用源码路径构建的本地包与已在干净发行版验证的依赖闭包是不同状态。安装包不自动启动 Dock 或 XR。
+`dpkg-buildpackage -us -uc -b` 生成独立包。使用显式源码 SDK 构建本地包、干净发行版依赖闭包、目标安装和原生交互是独立验收状态。安装不会启动桌面或服务。
 
 ## 运行
 
@@ -43,8 +42,9 @@ XR_SPATIAL_KIT_DIR=/work/sdk/xr-spatial-kit python3 tools/build.py
 xr-dock --socket "$XDG_RUNTIME_DIR/xr-desktop/shell.sock"
 xr-dock --seconds 60 --pin peony.desktop --pin qterminal.desktop
 xr-dock --list-apps
+xr-dock --list-pins
 ```
 
-默认 socket 为 `$XDG_RUNTIME_DIR/xr-desktop/shell.sock`。重复 `--apps-dir DIR` 可替换正常 XDG 清单目录；它读取真实桌面文件，实际 launch 仍由窗口服务按 app ID 解析。所需能力为 core/scene/snapshot/input/window/workspace/system v1，缺少能力时明确报告并退出。
+默认 socket 为 `$XDG_RUNTIME_DIR/xr-desktop/shell.sock`。重复 `--apps-dir DIR` 替换默认 XDG 清单目录，重复 `--pin` 显式选择真实应用及顺序；`--list-pins` 只打印匹配结果，不连接 XR。所需能力为 core/scene/snapshot/input/window/workspace/system v1，缺少时明确失败。
 
-stdout 记录真实握手、快照 revision、scene ack、输入、意图 request ID 和退出；服务错误在状态栏可见。真实启动/焦点/关闭/工作区及断线回收须在已选 Shell/窗口服务组合中验收，编译和应用清单读取不等于这些行为已通过。
+stdout 记录握手、快照/scene revision、输入、意图 request ID 与退出。真实启动、多实例与跨工作区焦点、分钟更新和三岛画面须在选定 Shell/窗口服务组合验证；本地构建和目录读取不等于原生渲染或操作验收通过。

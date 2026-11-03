@@ -198,10 +198,11 @@ dependencies = [
 
 [[package]]
 name = "xr-dock"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "ctrlc",
+ "libc",
  "serde",
  "serde_json",
  "xr-shell-protocols",
@@ -220,7 +221,7 @@ dependencies = [
 
 [[package]]
 name = "xr-spatial-kit"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "serde",

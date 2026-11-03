@@ -1,3 +1,12 @@
+xr-dock (0.2.2) unstable; urgency=medium
+
+  * Follow the Qingkong control-library artwork with separate clock/app islands.
+  * Show real local minute/date labels and up to six real role-matched pins.
+  * Aggregate running app icons while preserving paged per-window focus access.
+  * Wait for authoritative workspace state before cross-workspace focus.
+
+ -- bits <bigbits@hackx.cc>  Wed, 04 Nov 2026 04:28:07 +0800
+
 xr-dock (0.2.1) unstable; urgency=medium
 
   * Reduce the capsule height to 54.4 logical pixels without moving its anchor.

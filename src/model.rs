@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-use crate::catalog::App;
+use crate::{
+    catalog::App,
+    clock::Clock,
+    tasks::{self, TaskGroup},
+};
 use anyhow::{Result, ensure};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
-use xr_spatial_kit::{Action, InteractionState, Kind, Phase, PointerEvent, Scene, Widget};
+use xr_spatial_kit::{Action, InteractionState, Kind, Phase, PointerEvent, Scene, Widget, taskbar};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Window {
@@ -25,13 +29,7 @@ pub struct Window {
 pub enum Intent {
     Launch(String),
     Focus(Window),
-    Close(Window),
     Workspace(u32),
-    Component {
-        role: String,
-        panel: String,
-        intent: String,
-    },
 }
 
 pub struct Model {
@@ -48,6 +46,11 @@ pub struct Model {
     pub widgets: BTreeMap<String, Widget>,
     pub interactions: BTreeMap<String, InteractionState>,
     pub intents: BTreeMap<String, Intent>,
+    group_actions: BTreeMap<String, String>,
+    selected_group: Option<String>,
+    window_page: usize,
+    pending_focus: Option<(String, String)>,
+    clock: Clock,
 }
 impl Model {
     pub fn new(apps: Vec<App>, pinned: Vec<App>) -> Self {
@@ -65,6 +68,11 @@ impl Model {
             widgets: BTreeMap::new(),
             interactions: BTreeMap::new(),
             intents: BTreeMap::new(),
+            group_actions: BTreeMap::new(),
+            selected_group: None,
+            window_page: 0,
+            pending_focus: None,
+            clock: Clock::new(),
         }
     }
     pub fn snapshot(&mut self, payload: &Value, incremental: bool) -> Result<bool> {
@@ -105,67 +113,226 @@ impl Model {
         self.awaiting_snapshot = false;
         Ok(changed)
     }
+    pub fn tick_clock(&mut self) -> bool {
+        self.clock.refresh()
+    }
+    fn task_groups(&self) -> Vec<TaskGroup> {
+        tasks::groups(
+            &self.apps,
+            &self.pinned,
+            &self.windows,
+            self.active_workspace,
+        )
+    }
+    /// A focus in another workspace is sent only after its authoritative
+    /// snapshot confirms the workspace transition, never optimistically.
+    pub fn ready_intent(&mut self) -> Option<Intent> {
+        if self.awaiting_snapshot {
+            return None;
+        }
+        let (generation, surface) = self.pending_focus.as_ref()?;
+        let window = self
+            .windows
+            .iter()
+            .find(|w| &w.window_server_generation == generation && &w.surface_id == surface)
+            .cloned();
+        let Some(window) = window else {
+            self.pending_focus = None;
+            return None;
+        };
+        if window.workspace != self.active_workspace {
+            return None;
+        }
+        self.pending_focus = None;
+        Some(Intent::Focus(window))
+    }
+    fn choose_window(&mut self, target: Window) -> Option<Intent> {
+        let window = self
+            .windows
+            .iter()
+            .find(|w| {
+                w.window_server_generation == target.window_server_generation
+                    && w.surface_id == target.surface_id
+            })?
+            .clone();
+        self.selected_group = None;
+        if window.workspace != self.active_workspace {
+            self.pending_focus = Some((
+                window.window_server_generation.clone(),
+                window.surface_id.clone(),
+            ));
+            Some(Intent::Workspace(window.workspace))
+        } else {
+            self.pending_focus = None;
+            Some(Intent::Focus(window))
+        }
+    }
+    fn activate_group(&mut self, key: &str) -> Option<Intent> {
+        self.pending_focus = None;
+        let group = self.task_groups().into_iter().find(|g| g.key == key)?;
+        self.menu_open = false;
+        if group.windows.len() == 1 {
+            return self.choose_window(group.windows[0].clone());
+        }
+        if self.selected_group.as_deref() == Some(key) {
+            self.selected_group = None;
+        } else {
+            self.selected_group = Some(key.into());
+            self.window_page = 0;
+        }
+        None
+    }
     pub fn scene(&mut self) -> Scene {
         let mut scene = Scene::new(
-            [1200.0, 54.4],
-            [1.2, 0.0544],
-            [0.0, 0.86, -1.72],
+            taskbar::CENTER_LOGICAL,
+            taskbar::CENTER_SIZE,
+            taskbar::CENTER_POSITION,
             "dock_lazy_follow",
         )
-        .with_rotation([12.0, 0.0, 0.0]);
+        .with_rotation(taskbar::ROTATION);
         let mut intents = BTreeMap::new();
+        let mut group_actions = BTreeMap::new();
         scene.push(Widget::card(
             "dock-background",
-            [0.0, 0.0, 1200.0, 54.4],
+            [
+                0.0,
+                0.0,
+                taskbar::CENTER_LOGICAL[0],
+                taskbar::LOGICAL_HEIGHT,
+            ],
             "dock.background",
+        ));
+        scene.push(
+            Widget::spatial_group(
+                "data-island",
+                taskbar::SIDE_LOGICAL,
+                taskbar::SIDE_SIZE,
+                taskbar::LEFT_POSITION,
+            )
+            .with_rotation(taskbar::ROTATION),
+        );
+        scene.push(
+            Widget::card(
+                "data-island-background",
+                [0.0, 0.0, taskbar::SIDE_LOGICAL[0], taskbar::LOGICAL_HEIGHT],
+                "dock.background",
+            )
+            .parent("data-island"),
+        );
+        scene.push(
+            Widget::text(
+                "local-clock",
+                [24.0, 12.0, 122.0, 48.0],
+                &self.clock.time,
+                "taskbar.clock",
+            )
+            .parent("data-island"),
+        );
+        scene.push(
+            Widget::card(
+                "clock-separator",
+                [156.0, 20.0, 1.0, 32.0],
+                "taskbar.separator",
+            )
+            .parent("data-island"),
+        );
+        scene.push(
+            Widget::text(
+                "local-date",
+                [176.0, 21.0, 160.0, 30.0],
+                &self.clock.date_weekday,
+                "taskbar.caption",
+            )
+            .parent("data-island"),
+        );
+        scene.push(
+            Widget::button(
+                "launcher",
+                [12.0, 6.0, 52.0, 56.0],
+                "",
+                "open-launcher",
+                "dock.app-icon",
+            )
+            .with_icon("view-app-grid"),
+        );
+        scene.push(Widget::card(
+            "launcher-separator",
+            [72.0, 20.0, 1.0, 32.0],
+            "taskbar.separator",
         ));
         for space in 0..4 {
             let id = format!("workspace-{space}");
-            let width = if space == self.active_workspace {
-                28.0
-            } else {
-                12.0
-            };
+            let selected = space == self.active_workspace;
+            let width = if selected { 12.0 } else { 6.0 };
             scene.push(Widget::button(
                 &id,
-                [30.0 + space as f32 * 39.0 - width / 2.0, 21.2, width, 12.0],
+                [
+                    88.0 + (space % 2) as f32 * 16.0 - width / 2.0,
+                    25.0 + (space / 2) as f32 * 16.0,
+                    width,
+                    6.0,
+                ],
                 "",
                 &id,
-                if space == self.active_workspace {
-                    "dock.active"
+                if selected {
+                    "taskbar.running"
                 } else {
-                    "dock.workspace"
+                    "taskbar.workspace"
                 },
             ));
             intents.insert(id, Intent::Workspace(space));
         }
-        let tasks: Vec<_> = self
-            .windows
+        let groups = self.task_groups();
+        let pinned_ids: BTreeSet<_> = self.pinned.iter().map(|p| p.id.as_str()).collect();
+        let unpinned: Vec<_> = groups
             .iter()
-            .filter(|w| w.workspace == self.active_workspace)
+            .filter(|g| !pinned_ids.contains(g.key.as_str()))
             .collect();
-        let pages = tasks.len().div_ceil(4).max(1);
-        self.task_page = self.task_page.min(pages - 1);
-        if tasks.is_empty() {
-            scene.push(
-                Widget::button(
-                    "launcher",
-                    [579.6, 6.8, 40.8, 40.8],
-                    "",
-                    "open-launcher",
-                    "button.icon",
-                )
-                .with_icon("view-app-grid"),
+        let running_slots = 8usize.saturating_sub(self.pinned.len()).max(1);
+        let task_pages = unpinned.len().div_ceil(running_slots).max(1);
+        self.task_page = self.task_page.min(task_pages - 1);
+        for (i, app) in self.pinned.iter().enumerate() {
+            let id = app_node("dock-app", &app.id);
+            let group = groups.iter().find(|g| g.key == app.id);
+            app_button(
+                &mut scene,
+                &id,
+                140.0 + i as f32 * 56.0,
+                app_icon(app),
+                group.is_some_and(|g| g.focused()),
+                group.is_some(),
             );
+            if let Some(group) = group {
+                group_actions.insert(id, group.key.clone());
+            } else {
+                intents.insert(id, Intent::Launch(app.id.clone()));
+            }
         }
-        if pages > 1 {
+        for (i, group) in unpinned
+            .iter()
+            .skip(self.task_page * running_slots)
+            .take(running_slots)
+            .enumerate()
+        {
+            let id = app_node("running-app", &group.key);
+            app_button(
+                &mut scene,
+                &id,
+                140.0 + (self.pinned.len() + i) as f32 * 56.0,
+                &group.icon,
+                group.focused(),
+                true,
+            );
+            group_actions.insert(id, group.key.clone());
+        }
+        if task_pages > 1 {
             scene.push(
                 Widget::button(
                     "tasks-prev",
-                    [176.0, 13.6, 28.0, 27.2],
+                    [116.0, 24.0, 18.0, 24.0],
                     "",
                     "tasks-prev",
-                    "button.icon",
+                    "dock.app-icon",
                 )
                 .with_icon("go-previous")
                 .enabled(self.task_page > 0),
@@ -173,90 +340,15 @@ impl Model {
             scene.push(
                 Widget::button(
                     "tasks-next",
-                    [1098.0, 13.6, 28.0, 27.2],
+                    [592.0, 24.0, 16.0, 24.0],
                     "",
                     "tasks-next",
-                    "button.icon",
+                    "dock.app-icon",
                 )
                 .with_icon("go-next")
-                .enabled(self.task_page + 1 < pages),
+                .enabled(self.task_page + 1 < task_pages),
             );
         }
-        for (i, window) in tasks
-            .into_iter()
-            .skip(self.task_page * 4)
-            .take(4)
-            .enumerate()
-        {
-            let id = format!(
-                "task-{}-{}",
-                window.window_server_generation, window.surface_id
-            );
-            let close = format!(
-                "close-{}-{}",
-                window.window_server_generation, window.surface_id
-            );
-            let x = 210.0 + i as f32 * 220.0;
-            let title = if window.title.is_empty() {
-                &window.app_id
-            } else {
-                &window.title
-            };
-            let icon = self
-                .apps
-                .iter()
-                .find(|a| {
-                    a.id == window.app_id
-                        || a.id.strip_suffix(".desktop") == Some(window.app_id.as_str())
-                })
-                .map(|a| a.icon.as_str())
-                .filter(|s| !s.is_empty())
-                .unwrap_or("application-x-executable");
-            scene.push(
-                Widget::button(
-                    &id,
-                    [x, 6.8, 174.0, 40.8],
-                    &short(title, 10),
-                    &id,
-                    if window.focused {
-                        "dock.active"
-                    } else {
-                        "dock.task"
-                    },
-                )
-                .with_icon(icon),
-            );
-            scene.push(
-                Widget::button(
-                    &close,
-                    [x + 179.8, 17.0, 20.4, 20.4],
-                    "",
-                    &close,
-                    "button.icon",
-                )
-                .with_icon("window-close"),
-            );
-            intents.insert(id, Intent::Focus(window.clone()));
-            intents.insert(close, Intent::Close(window.clone()));
-        }
-        scene.push(
-            Widget::button(
-                "system",
-                [1139.6, 6.8, 40.8, 40.8],
-                "",
-                "system",
-                "dock.system",
-            )
-            .with_icon("preferences-system"),
-        );
-        intents.insert(
-            "system".into(),
-            Intent::Component {
-                role: "system_ui".into(),
-                panel: "control".into(),
-                intent: "toggle".into(),
-            },
-        );
         if self.menu_open {
             let group = "launcher-space";
             scene.push(Widget::spatial_group(
@@ -298,7 +390,7 @@ impl Model {
                 scene.push(
                     Widget::button(
                         &id,
-                        [24.0 + i as f32 * 182.0, 64.0, 170.0, 68.0],
+                        [24.0 + i as f32 * 152.0, 64.0, 140.0, 68.0],
                         &short(&app.name, 8),
                         &id,
                         "dock.application",
@@ -395,6 +487,119 @@ impl Model {
                 );
             }
         }
+        if let Some(key) = self.selected_group.clone() {
+            if let Some(group) = groups.iter().find(|g| g.key == key) {
+                let panel = "window-picker";
+                let pages = group.windows.len().div_ceil(6).max(1);
+                self.window_page = self.window_page.min(pages - 1);
+                scene.push(Widget::spatial_group(
+                    panel,
+                    [520.0, 400.0],
+                    [0.65, 0.5],
+                    [0.0, 1.2, -1.68],
+                ));
+                scene.push(
+                    Widget::card(
+                        "window-picker-background",
+                        [0.0, 0.0, 520.0, 400.0],
+                        "panel.background",
+                    )
+                    .parent(panel),
+                );
+                scene.push(
+                    Widget::text(
+                        "window-picker-title",
+                        [20.0, 16.0, 412.0, 32.0],
+                        &format!(
+                            "{} · {} 个窗口",
+                            short(&group.name, 18),
+                            group.windows.len()
+                        ),
+                        "text.primary",
+                    )
+                    .parent(panel),
+                );
+                scene.push(
+                    Widget::button(
+                        "window-picker-close",
+                        [456.0, 10.0, 44.0, 44.0],
+                        "",
+                        "window-picker-close",
+                        "button.icon",
+                    )
+                    .with_icon("window-close")
+                    .parent(panel),
+                );
+                for (i, window) in group
+                    .windows
+                    .iter()
+                    .skip(self.window_page * 6)
+                    .take(6)
+                    .enumerate()
+                {
+                    let id = format!(
+                        "pick-{}-{}",
+                        window.window_server_generation, window.surface_id
+                    );
+                    let title = if window.title.is_empty() {
+                        &window.app_id
+                    } else {
+                        &window.title
+                    };
+                    scene.push(
+                        Widget::button(
+                            &id,
+                            [20.0, 64.0 + i as f32 * 44.0, 480.0, 40.0],
+                            &format!("{} · 工作区 {}", short(title, 14), window.workspace + 1),
+                            &id,
+                            if window.focused {
+                                "button.primary"
+                            } else {
+                                "button.secondary"
+                            },
+                        )
+                        .with_icon(&group.icon)
+                        .parent(panel),
+                    );
+                    intents.insert(id, Intent::Focus(window.clone()));
+                }
+                scene.push(
+                    Widget::button(
+                        "windows-prev",
+                        [20.0, 348.0, 44.0, 36.0],
+                        "",
+                        "windows-prev",
+                        "button.icon",
+                    )
+                    .with_icon("go-previous")
+                    .enabled(self.window_page > 0)
+                    .parent(panel),
+                );
+                scene.push(
+                    Widget::text(
+                        "windows-page",
+                        [200.0, 352.0, 120.0, 28.0],
+                        &format!("{}/{}", self.window_page + 1, pages),
+                        "text.secondary",
+                    )
+                    .parent(panel),
+                );
+                scene.push(
+                    Widget::button(
+                        "windows-next",
+                        [456.0, 348.0, 44.0, 36.0],
+                        "",
+                        "windows-next",
+                        "button.icon",
+                    )
+                    .with_icon("go-next")
+                    .enabled(self.window_page + 1 < pages)
+                    .parent(panel),
+                );
+            } else {
+                self.selected_group = None;
+            }
+        }
         let ids: BTreeSet<_> = scene.widgets.iter().map(|w| w.id.clone()).collect();
         self.interactions.retain(|id, _| ids.contains(id));
         self.widgets = scene
@@ -403,6 +608,7 @@ impl Model {
             .map(|w| (w.id.clone(), w.clone()))
             .collect();
         self.intents = intents;
+        self.group_actions = group_actions;
         scene
     }
     pub fn component_command(&mut self, payload: &Value) -> bool {
@@ -418,6 +624,10 @@ impl Model {
         };
         let changed = visible != self.menu_open;
         self.menu_open = visible;
+        if visible {
+            self.selected_group = None;
+            self.pending_focus = None;
+        }
         changed
     }
     pub fn input(&mut self, payload: &Value, cancel: bool) -> (bool, Option<Intent>) {
@@ -462,6 +672,8 @@ impl Model {
             match id {
                 "launcher" => {
                     self.menu_open = !self.menu_open;
+                    self.selected_group = None;
+                    self.pending_focus = None;
                     return (true, None);
                 }
                 "launcher-close" => {
@@ -476,6 +688,18 @@ impl Model {
                     self.page += 1;
                     return (true, None);
                 }
+                "window-picker-close" => {
+                    self.selected_group = None;
+                    return (true, None);
+                }
+                "windows-prev" => {
+                    self.window_page = self.window_page.saturating_sub(1);
+                    return (true, None);
+                }
+                "windows-next" => {
+                    self.window_page += 1;
+                    return (true, None);
+                }
                 "tasks-prev" => {
                     self.task_page = self.task_page.saturating_sub(1);
                     return (true, None);
@@ -485,8 +709,21 @@ impl Model {
                     return (true, None);
                 }
                 _ => {
-                    let intent = self.intents.get(id).cloned();
+                    if let Some(key) = self.group_actions.get(id).cloned() {
+                        let intent = self.activate_group(&key);
+                        return (true, intent);
+                    }
+                    let intent = match self.intents.get(id).cloned() {
+                        Some(Intent::Focus(window)) => self.choose_window(window),
+                        Some(Intent::Workspace(workspace)) => {
+                            self.pending_focus = None;
+                            self.selected_group = None;
+                            Some(Intent::Workspace(workspace))
+                        }
+                        other => other,
+                    };
                     if matches!(intent, Some(Intent::Launch(_))) {
+                        self.pending_focus = None;
                         self.menu_open = false;
                     }
                     return (true, intent);
@@ -507,6 +744,9 @@ impl Model {
         self.windows.clear();
         self.widgets.clear();
         self.intents.clear();
+        self.group_actions.clear();
+        self.selected_group = None;
+        self.pending_focus = None;
         self.menu_open = false;
         self.status.clear();
     }
@@ -530,5 +770,29 @@ fn app_icon(app: &App) -> &str {
         "application-x-executable"
     } else {
         &app.icon
+    }
+}
+
+fn app_button(scene: &mut Scene, id: &str, x: f32, icon: &str, focused: bool, running: bool) {
+    scene.push(
+        Widget::button(
+            id,
+            [x, 6.0, 52.0, 56.0],
+            "",
+            id,
+            if focused {
+                "dock.active-icon"
+            } else {
+                "dock.app-icon"
+            },
+        )
+        .with_icon(icon),
+    );
+    if running {
+        scene.push(Widget::card(
+            &format!("{id}-running"),
+            [x + 23.75, 64.0, 4.5, 4.5],
+            "taskbar.running",
+        ));
     }
 }

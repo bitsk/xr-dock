@@ -1,3 +1,11 @@
+xr-dock (0.2.1) unstable; urgency=medium
+
+  * Reduce the capsule height to 54.4 logical pixels without moving its anchor.
+  * Use compact dots and an active blue capsule for real workspace actions.
+  * Consume the compatible 0.2 spatial Kit with the polished glass tokens.
+
+ -- bits <bigbits@hackx.cc>  Wed, 04 Nov 2026 03:00:33 +0800
+
 xr-dock (0.2.0) unstable; urgency=medium
 
   * Use a compact tilted 64px capsule dock with real window tasks.

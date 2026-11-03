@@ -107,8 +107,8 @@ impl Model {
     }
     pub fn scene(&mut self) -> Scene {
         let mut scene = Scene::new(
-            [1200.0, 64.0],
-            [1.2, 0.064],
+            [1200.0, 54.4],
+            [1.2, 0.0544],
             [0.0, 0.86, -1.72],
             "dock_lazy_follow",
         )
@@ -116,15 +116,20 @@ impl Model {
         let mut intents = BTreeMap::new();
         scene.push(Widget::card(
             "dock-background",
-            [0.0, 0.0, 1200.0, 64.0],
+            [0.0, 0.0, 1200.0, 54.4],
             "dock.background",
         ));
         for space in 0..4 {
             let id = format!("workspace-{space}");
+            let width = if space == self.active_workspace {
+                28.0
+            } else {
+                12.0
+            };
             scene.push(Widget::button(
                 &id,
-                [14.0 + space as f32 * 39.0, 16.0, 32.0, 32.0],
-                &(space + 1).to_string(),
+                [30.0 + space as f32 * 39.0 - width / 2.0, 21.2, width, 12.0],
+                "",
                 &id,
                 if space == self.active_workspace {
                     "dock.active"
@@ -145,7 +150,7 @@ impl Model {
             scene.push(
                 Widget::button(
                     "launcher",
-                    [562.0, 8.0, 48.0, 48.0],
+                    [579.6, 6.8, 40.8, 40.8],
                     "",
                     "open-launcher",
                     "button.icon",
@@ -157,7 +162,7 @@ impl Model {
             scene.push(
                 Widget::button(
                     "tasks-prev",
-                    [176.0, 16.0, 28.0, 32.0],
+                    [176.0, 13.6, 28.0, 27.2],
                     "",
                     "tasks-prev",
                     "button.icon",
@@ -168,7 +173,7 @@ impl Model {
             scene.push(
                 Widget::button(
                     "tasks-next",
-                    [1098.0, 16.0, 28.0, 32.0],
+                    [1098.0, 13.6, 28.0, 27.2],
                     "",
                     "tasks-next",
                     "button.icon",
@@ -210,7 +215,7 @@ impl Model {
             scene.push(
                 Widget::button(
                     &id,
-                    [x, 8.0, 174.0, 48.0],
+                    [x, 6.8, 174.0, 40.8],
                     &short(title, 10),
                     &id,
                     if window.focused {
@@ -224,7 +229,7 @@ impl Model {
             scene.push(
                 Widget::button(
                     &close,
-                    [x + 178.0, 20.0, 24.0, 24.0],
+                    [x + 179.8, 17.0, 20.4, 20.4],
                     "",
                     &close,
                     "button.icon",
@@ -237,7 +242,7 @@ impl Model {
         scene.push(
             Widget::button(
                 "system",
-                [1136.0, 8.0, 48.0, 48.0],
+                [1139.6, 6.8, 40.8, 40.8],
                 "",
                 "system",
                 "dock.system",

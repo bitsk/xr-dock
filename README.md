@@ -5,7 +5,7 @@
 ## 功能与状态权威
 
 - 从 XDG `.desktop` 清单读取实际应用，支持目录优先级、Hidden/NoDisplay、OnlyShowIn/NotShowIn、中文名称和图标标识。默认固定已发现的文件管理器、终端和浏览器，可用 `--pin` 选择。
-- 默认单排64px高的两端胶囊，STAGE位置 `[0,.86,-1.72]`，pitch `+12°`；左侧工作区1–4，中间只显示实际运行的当前工作区窗口标签，右侧系统图标按钮通过 `ComponentIntent` 切换控制中心。无任务时提供紧凑应用库图标入口。
+- 默认单排54.4px高的两端胶囊，STAGE位置 `[0,.86,-1.72]`，pitch `+12°`；左侧四个真实工作区以小圆点表示，当前项为蓝色横向小胶囊，中间只显示实际运行的当前工作区窗口标签，右侧系统图标按钮通过 `ComponentIntent` 切换控制中心。无任务时提供紧凑应用库图标入口。
 - 应用库是按需展开的独立空间 Group，默认隐藏。接收 `ComponentCommand {role:"dock",panel:"launcher",intent:"show"|"hide"|"toggle"}`；固定应用和分页清单按钮发送 `WindowIntent launch`，由 Shell/窗口服务执行真实启动。Dock 仅发送 app ID，不把文件名或命令当 shell 字符串执行。
 - 从 Shell Snapshot/连续 StateChanged 构建任务和四个工作区。仅 toplevel 列为任务，popup、subsurface 和输入法候选不作为新任务。工作区窗口数、焦点、关闭完成都以服务端状态为准。
 - 任务按钮发送 focus，关闭按钮发送 close，工作区按钮发送 WorkspaceIntent；不会乐观删除窗口或伪造启动成功。任务和应用都支持分页。
@@ -22,7 +22,7 @@
 
 ```text
 xr-shell/protocols/  xr-shell-protocols 0.2.0
-xr-spatial-kit/      xr-spatial-kit 0.2.0
+xr-spatial-kit/      xr-spatial-kit 0.2.1
 xr-dock/
 ```
 

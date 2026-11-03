@@ -260,28 +260,6 @@ impl Model {
             [72.0, 20.0, 1.0, 32.0],
             "taskbar.separator",
         ));
-        for space in 0..4 {
-            let id = format!("workspace-{space}");
-            let selected = space == self.active_workspace;
-            let width = if selected { 12.0 } else { 6.0 };
-            scene.push(Widget::button(
-                &id,
-                [
-                    88.0 + (space % 2) as f32 * 16.0 - width / 2.0,
-                    25.0 + (space / 2) as f32 * 16.0,
-                    width,
-                    6.0,
-                ],
-                "",
-                &id,
-                if selected {
-                    "taskbar.running"
-                } else {
-                    "taskbar.workspace"
-                },
-            ));
-            intents.insert(id, Intent::Workspace(space));
-        }
         let groups = self.task_groups();
         let pinned_ids: BTreeSet<_> = self.pinned.iter().map(|p| p.id.as_str()).collect();
         let unpinned: Vec<_> = groups
@@ -291,13 +269,27 @@ impl Model {
         let running_slots = 8usize.saturating_sub(self.pinned.len()).max(1);
         let task_pages = unpinned.len().div_ceil(running_slots).max(1);
         self.task_page = self.task_page.min(task_pages - 1);
+        let visible_running: Vec<_> = unpinned
+            .iter()
+            .skip(self.task_page * running_slots)
+            .take(running_slots)
+            .collect();
+        let visible_count = self.pinned.len() + visible_running.len();
+        let gap = if visible_count > 1 {
+            ((480.0 - visible_count as f32 * 56.0) / (visible_count - 1) as f32).clamp(0.0, 20.0)
+        } else {
+            0.0
+        };
+        let span = visible_count as f32 * 56.0 + visible_count.saturating_sub(1) as f32 * gap;
+        let app_start = 110.0 + (480.0 - span) / 2.0;
+        let app_step = 56.0 + gap;
         for (i, app) in self.pinned.iter().enumerate() {
             let id = app_node("dock-app", &app.id);
             let group = groups.iter().find(|g| g.key == app.id);
             app_button(
                 &mut scene,
                 &id,
-                140.0 + i as f32 * 56.0,
+                app_start + i as f32 * app_step,
                 app_icon(app),
                 group.is_some_and(|g| g.focused()),
                 group.is_some(),
@@ -308,17 +300,12 @@ impl Model {
                 intents.insert(id, Intent::Launch(app.id.clone()));
             }
         }
-        for (i, group) in unpinned
-            .iter()
-            .skip(self.task_page * running_slots)
-            .take(running_slots)
-            .enumerate()
-        {
+        for (i, group) in visible_running.into_iter().enumerate() {
             let id = app_node("running-app", &group.key);
             app_button(
                 &mut scene,
                 &id,
-                140.0 + (self.pinned.len() + i) as f32 * 56.0,
+                app_start + (self.pinned.len() + i) as f32 * app_step,
                 &group.icon,
                 group.focused(),
                 true,
@@ -329,7 +316,7 @@ impl Model {
             scene.push(
                 Widget::button(
                     "tasks-prev",
-                    [116.0, 24.0, 18.0, 24.0],
+                    [84.0, 24.0, 18.0, 24.0],
                     "",
                     "tasks-prev",
                     "dock.app-icon",
@@ -340,7 +327,7 @@ impl Model {
             scene.push(
                 Widget::button(
                     "tasks-next",
-                    [592.0, 24.0, 16.0, 24.0],
+                    [598.0, 24.0, 16.0, 24.0],
                     "",
                     "tasks-next",
                     "dock.app-icon",
@@ -405,12 +392,30 @@ impl Model {
             scene.push(
                 Widget::text(
                     "apps-label",
-                    [24.0, 154.0, 480.0, 28.0],
-                    "全部应用",
+                    [24.0, 154.0, 320.0, 28.0],
+                    "应用与工作区",
                     "text.secondary",
                 )
                 .parent(group),
             );
+            for space in 0..4 {
+                let id = format!("workspace-{space}");
+                scene.push(
+                    Widget::button(
+                        &id,
+                        [400.0 + space as f32 * 88.0, 142.0, 56.0, 40.0],
+                        &(space + 1).to_string(),
+                        &id,
+                        if space == self.active_workspace {
+                            "button.primary"
+                        } else {
+                            "button.secondary"
+                        },
+                    )
+                    .parent(group),
+                );
+                intents.insert(id, Intent::Workspace(space));
+            }
             scene.push(
                 Widget::button(
                     "page-prev",
@@ -777,7 +782,7 @@ fn app_button(scene: &mut Scene, id: &str, x: f32, icon: &str, focused: bool, ru
     scene.push(
         Widget::button(
             id,
-            [x, 6.0, 52.0, 56.0],
+            [x, 6.0, 56.0, 56.0],
             "",
             id,
             if focused {
@@ -791,7 +796,7 @@ fn app_button(scene: &mut Scene, id: &str, x: f32, icon: &str, focused: bool, ru
     if running {
         scene.push(Widget::card(
             &format!("{id}-running"),
-            [x + 23.75, 64.0, 4.5, 4.5],
+            [x + 25.75, 64.0, 4.5, 4.5],
             "taskbar.running",
         ));
     }

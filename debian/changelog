@@ -2,6 +2,7 @@ xr-dock (0.2.2) unstable; urgency=medium
 
   * Follow the Qingkong control-library artwork with separate clock/app islands.
   * Show real local minute/date labels and up to six real role-matched pins.
+  * Centre visible app buttons and move workspace selection into the launcher.
   * Aggregate running app icons while preserving paged per-window focus access.
   * Wait for authoritative workspace state before cross-workspace focus.
 

@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+export RUSTFLAGS := $(RUSTFLAGS) --remap-path-prefix=$(CURDIR)=/usr/src/xr-dock
+ifneq ($(strip $(CARGO_HOME)),)
+export RUSTFLAGS += --remap-path-prefix=$(CARGO_HOME)=/usr/src/cargo
+endif
+%:
+	dh $@ --buildsystem=none
+override_dh_auto_build:
+	CARGO_TARGET_DIR="$(CURDIR)/target" python3 tools/build.py
+override_dh_auto_test:
+	@echo "Real Shell/Wayland interaction acceptance is performed in the development guest."
+override_dh_auto_clean:
+	rm -rf target build/cargo-source

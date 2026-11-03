@@ -1,0 +1,6 @@
+xr-dock (0.1.0) unstable; urgency=medium
+
+  * Add the independent scene-client application and task dock.
+  * Consume Shell snapshots and route application/workspace intents.
+
+ -- openKylin XR SIG <xr@lists.openkylin.top>  Tue, 03 Nov 2026 23:49:06 +0800

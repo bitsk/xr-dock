@@ -1,3 +1,11 @@
+xr-dock (0.2.0) unstable; urgency=medium
+
+  * Use a compact tilted 64px capsule dock with real window tasks.
+  * Keep applications and pins in a separate on-demand spatial launcher.
+  * Route the system button and launcher commands over system.v1.
+
+ -- bits <bigbits@hackx.cc>  Wed, 04 Nov 2026 00:42:56 +0800
+
 xr-dock (0.1.1) unstable; urgency=medium
 
   * Exit successfully when Shell announces SessionEnding.

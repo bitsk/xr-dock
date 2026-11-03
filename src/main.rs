@@ -126,6 +126,7 @@ fn connected(socket: &Path, model: &mut Model, running: &dyn Fn() -> bool) -> Re
             "input.v1",
             "window.v1",
             "workspace.v1",
+            "system.v1",
         ],
     )?;
     println!(
@@ -154,6 +155,9 @@ fn connected(socket: &Path, model: &mut Model, running: &dyn Fn() -> bool) -> Re
                 "SessionEnding" => {
                     println!("XR_DOCK_SESSION_ENDING={payload}");
                     break;
+                }
+                "ComponentCommand" => {
+                    dirty |= model.component_command(payload);
                 }
                 "Snapshot" | "StateChanged" => {
                     if model.snapshot(payload, kind == "StateChanged")? {
@@ -264,6 +268,14 @@ fn send_intent(client: &mut Client, intent: Intent) -> Result<()> {
             json!({"intent":"close","surface_id":w.surface_id,"window_server_generation":w.window_server_generation}),
         ),
         Intent::Workspace(workspace) => ("WorkspaceIntent", json!({"workspace":workspace})),
+        Intent::Component {
+            role,
+            panel,
+            intent,
+        } => (
+            "ComponentIntent",
+            json!({"role":role,"panel":panel,"intent":intent}),
+        ),
     };
     let request = client.send(kind, payload.clone(), &[])?;
     println!("XR_DOCK_INTENT request={request} type={kind} payload={payload}");

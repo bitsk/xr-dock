@@ -5,11 +5,14 @@
 ## 功能与状态权威
 
 - 从 XDG `.desktop` 清单读取实际应用，支持目录优先级、Hidden/NoDisplay、OnlyShowIn/NotShowIn、中文名称和图标标识。默认固定已发现的文件管理器、终端和浏览器，可用 `--pin` 选择。
-- “应用”展开分页清单；固定应用和清单按钮发送 `WindowIntent launch`，由 Shell/窗口服务执行真实启动。Dock 仅发送 app ID，不把文件名或命令当 shell 字符串执行。
+- 默认单排64px高的两端胶囊，STAGE位置 `[0,.86,-1.72]`，pitch `+12°`；左侧工作区1–4，中间只显示实际运行的当前工作区窗口标签，右侧系统图标按钮通过 `ComponentIntent` 切换控制中心。无任务时提供紧凑应用库图标入口。
+- 应用库是按需展开的独立空间 Group，默认隐藏。接收 `ComponentCommand {role:"dock",panel:"launcher",intent:"show"|"hide"|"toggle"}`；固定应用和分页清单按钮发送 `WindowIntent launch`，由 Shell/窗口服务执行真实启动。Dock 仅发送 app ID，不把文件名或命令当 shell 字符串执行。
 - 从 Shell Snapshot/连续 StateChanged 构建任务和四个工作区。仅 toplevel 列为任务，popup、subsurface 和输入法候选不作为新任务。工作区窗口数、焦点、关闭完成都以服务端状态为准。
 - 任务按钮发送 focus，关闭按钮发送 close，工作区按钮发送 WorkspaceIntent；不会乐观删除窗口或伪造启动成功。任务和应用都支持分页。
 - Kit 控件按同一 capture/interaction 的 press/release 激活，Cancel 清理状态。连续状态 revision 缺号时请求快照；scene revision 等 Shell ack 后再推进。
 - SDK 断开时清除场景缓存、capture 和任务缓存。收到 Shell `SessionEnding`、SIGINT/SIGTERM 或运行时限结束后正常退出；未预告的连接/协议错误退出 1，由会话管理者决定是否重启。Shell 根据连接生命周期退役本组件场景。
+
+玻璃、按钮和文字使用 Kit 的暗色空间 tokens；不会跟随宿主浅色主题变成白底。图标来自实际 `.desktop` 的主题资源 ID，系统按钮使用 freedesktop/UKUI 资源名，由 Shell 解析真实 SVG/PNG；不以大块文字模拟图标。
 
 显示由 Shell 的真实渲染/字形后端完成；本仓只发送几何、文本和样式标识。图标 ID 是主题资源名，绝对图标路径不作为场景资源发送。
 
@@ -19,7 +22,7 @@
 
 ```text
 xr-shell/protocols/  xr-shell-protocols 0.2.0
-xr-spatial-kit/      xr-spatial-kit 0.1.0
+xr-spatial-kit/      xr-spatial-kit 0.2.0
 xr-dock/
 ```
 
@@ -42,6 +45,6 @@ xr-dock --seconds 60 --pin peony.desktop --pin qterminal.desktop
 xr-dock --list-apps
 ```
 
-默认 socket 为 `$XDG_RUNTIME_DIR/xr-desktop/shell.sock`。重复 `--apps-dir DIR` 可替换正常 XDG 清单目录；它读取真实桌面文件，实际 launch 仍由窗口服务按 app ID 解析。所需能力为 core/scene/snapshot/input/window/workspace v1，缺少能力时明确报告并退出。
+默认 socket 为 `$XDG_RUNTIME_DIR/xr-desktop/shell.sock`。重复 `--apps-dir DIR` 可替换正常 XDG 清单目录；它读取真实桌面文件，实际 launch 仍由窗口服务按 app ID 解析。所需能力为 core/scene/snapshot/input/window/workspace/system v1，缺少能力时明确报告并退出。
 
 stdout 记录真实握手、快照 revision、scene ack、输入、意图 request ID 和退出；服务错误在状态栏可见。真实启动/焦点/关闭/工作区及断线回收须在已选 Shell/窗口服务组合中验收，编译和应用清单读取不等于这些行为已通过。

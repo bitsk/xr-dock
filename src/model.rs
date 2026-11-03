@@ -27,6 +27,11 @@ pub enum Intent {
     Focus(Window),
     Close(Window),
     Workspace(u32),
+    Component {
+        role: String,
+        panel: String,
+        intent: String,
+    },
 }
 
 pub struct Model {
@@ -101,115 +106,81 @@ impl Model {
         Ok(changed)
     }
     pub fn scene(&mut self) -> Scene {
-        let expanded = self.menu_open;
-        let height = if expanded { 620.0 } else { 180.0 };
-        let bar_y = height - 180.0;
         let mut scene = Scene::new(
-            [1200.0, height],
-            [1.2, height / 1000.0],
-            [0.0, 1.1, -1.5],
+            [1200.0, 64.0],
+            [1.2, 0.064],
+            [0.0, 0.86, -1.72],
             "dock_lazy_follow",
-        );
+        )
+        .with_rotation([12.0, 0.0, 0.0]);
         let mut intents = BTreeMap::new();
         scene.push(Widget::card(
             "dock-background",
-            [0.0, bar_y, 1200.0, 180.0],
+            [0.0, 0.0, 1200.0, 64.0],
             "dock.background",
-        ));
-        scene.push(Widget::button(
-            "launcher",
-            [16.0, bar_y + 16.0, 108.0, 76.0],
-            "应用",
-            "open-launcher",
-            "dock.application",
-        ));
-        for (i, app) in self.pinned.iter().enumerate() {
-            let id = app_node("pinned", &app.id);
-            scene.push(
-                Widget::button(
-                    &id,
-                    [136.0 + i as f32 * 108.0, bar_y + 16.0, 100.0, 76.0],
-                    &short(&app.name, 5),
-                    &id,
-                    "dock.application",
-                )
-                .with_icon(&app.icon),
-            );
-            intents.insert(id, Intent::Launch(app.id.clone()));
-        }
-        scene.push(Widget::text(
-            "workspace-label",
-            [720.0, bar_y + 16.0, 462.0, 32.0],
-            &format!("晴空 · 工作区 {}", self.active_workspace + 1),
-            "text.primary",
-        ));
-        let active = self
-            .windows
-            .iter()
-            .find(|w| w.focused)
-            .map(|w| w.title.as_str())
-            .unwrap_or("就绪");
-        let status = if self.status.is_empty() {
-            active
-        } else {
-            &self.status
-        };
-        scene.push(Widget::text(
-            "dock-status",
-            [720.0, bar_y + 54.0, 350.0, 32.0],
-            &short(status, 28),
-            "text.secondary",
         ));
         for space in 0..4 {
             let id = format!("workspace-{space}");
-            let count = self.windows.iter().filter(|w| w.workspace == space).count();
             scene.push(Widget::button(
                 &id,
-                [16.0 + space as f32 * 68.0, bar_y + 112.0, 60.0, 50.0],
-                &format!("{}·{}", space + 1, count),
+                [14.0 + space as f32 * 39.0, 16.0, 32.0, 32.0],
+                &(space + 1).to_string(),
                 &id,
                 if space == self.active_workspace {
                     "dock.active"
                 } else {
-                    "button.secondary"
+                    "dock.workspace"
                 },
             ));
             intents.insert(id, Intent::Workspace(space));
         }
-        let task_pages = self
+        let tasks: Vec<_> = self
             .windows
             .iter()
             .filter(|w| w.workspace == self.active_workspace)
-            .count()
-            .div_ceil(3)
-            .max(1);
-        self.task_page = self.task_page.min(task_pages - 1);
-        scene.push(
-            Widget::button(
-                "tasks-prev",
-                [1080.0, bar_y + 52.0, 44.0, 38.0],
-                "‹",
-                "tasks-prev",
-                "button.secondary",
-            )
-            .enabled(self.task_page > 0),
-        );
-        scene.push(
-            Widget::button(
-                "tasks-next",
-                [1136.0, bar_y + 52.0, 44.0, 38.0],
-                "›",
-                "tasks-next",
-                "button.secondary",
-            )
-            .enabled(self.task_page + 1 < task_pages),
-        );
-        for (i, window) in self
-            .windows
-            .iter()
-            .filter(|w| w.workspace == self.active_workspace)
-            .skip(self.task_page * 3)
-            .take(3)
+            .collect();
+        let pages = tasks.len().div_ceil(4).max(1);
+        self.task_page = self.task_page.min(pages - 1);
+        if tasks.is_empty() {
+            scene.push(
+                Widget::button(
+                    "launcher",
+                    [562.0, 8.0, 48.0, 48.0],
+                    "",
+                    "open-launcher",
+                    "button.icon",
+                )
+                .with_icon("view-app-grid"),
+            );
+        }
+        if pages > 1 {
+            scene.push(
+                Widget::button(
+                    "tasks-prev",
+                    [176.0, 16.0, 28.0, 32.0],
+                    "",
+                    "tasks-prev",
+                    "button.icon",
+                )
+                .with_icon("go-previous")
+                .enabled(self.task_page > 0),
+            );
+            scene.push(
+                Widget::button(
+                    "tasks-next",
+                    [1098.0, 16.0, 28.0, 32.0],
+                    "",
+                    "tasks-next",
+                    "button.icon",
+                )
+                .with_icon("go-next")
+                .enabled(self.task_page + 1 < pages),
+            );
+        }
+        for (i, window) in tasks
+            .into_iter()
+            .skip(self.task_page * 4)
+            .take(4)
             .enumerate()
         {
             let id = format!(
@@ -220,80 +191,172 @@ impl Model {
                 "close-{}-{}",
                 window.window_server_generation, window.surface_id
             );
-            let x = 320.0 + i as f32 * 286.0;
+            let x = 210.0 + i as f32 * 220.0;
             let title = if window.title.is_empty() {
                 &window.app_id
             } else {
                 &window.title
             };
-            scene.push(Widget::button(
-                &id,
-                [x, bar_y + 112.0, 226.0, 50.0],
-                &short(title, 14),
-                &id,
-                if window.focused {
-                    "dock.active"
-                } else {
-                    "button.secondary"
-                },
-            ));
-            scene.push(Widget::button(
-                &close,
-                [x + 232.0, bar_y + 112.0, 44.0, 50.0],
-                "×",
-                &close,
-                "button.danger",
-            ));
+            let icon = self
+                .apps
+                .iter()
+                .find(|a| {
+                    a.id == window.app_id
+                        || a.id.strip_suffix(".desktop") == Some(window.app_id.as_str())
+                })
+                .map(|a| a.icon.as_str())
+                .filter(|s| !s.is_empty())
+                .unwrap_or("application-x-executable");
+            scene.push(
+                Widget::button(
+                    &id,
+                    [x, 8.0, 174.0, 48.0],
+                    &short(title, 10),
+                    &id,
+                    if window.focused {
+                        "dock.active"
+                    } else {
+                        "dock.task"
+                    },
+                )
+                .with_icon(icon),
+            );
+            scene.push(
+                Widget::button(
+                    &close,
+                    [x + 178.0, 20.0, 24.0, 24.0],
+                    "",
+                    &close,
+                    "button.icon",
+                )
+                .with_icon("window-close"),
+            );
             intents.insert(id, Intent::Focus(window.clone()));
             intents.insert(close, Intent::Close(window.clone()));
         }
-        if expanded {
-            scene.push(Widget::card(
-                "launcher-panel",
-                [0.0, 0.0, 1200.0, 422.0],
-                "panel.background",
+        scene.push(
+            Widget::button(
+                "system",
+                [1136.0, 8.0, 48.0, 48.0],
+                "",
+                "system",
+                "dock.system",
+            )
+            .with_icon("preferences-system"),
+        );
+        intents.insert(
+            "system".into(),
+            Intent::Component {
+                role: "system_ui".into(),
+                panel: "control".into(),
+                intent: "toggle".into(),
+            },
+        );
+        if self.menu_open {
+            let group = "launcher-space";
+            scene.push(Widget::spatial_group(
+                group,
+                [960.0, 584.0],
+                [0.96, 0.584],
+                [0.0, 1.25, -1.68],
             ));
-            scene.push(Widget::text(
-                "launcher-title",
-                [24.0, 18.0, 600.0, 36.0],
-                "全部应用",
-                "text.primary",
-            ));
+            scene.push(
+                Widget::card(
+                    "launcher-panel",
+                    [0.0, 0.0, 960.0, 584.0],
+                    "panel.background",
+                )
+                .parent(group),
+            );
+            scene.push(
+                Widget::text(
+                    "launcher-title",
+                    [24.0, 18.0, 380.0, 30.0],
+                    "应用库",
+                    "text.primary",
+                )
+                .parent(group),
+            );
+            scene.push(
+                Widget::button(
+                    "launcher-close",
+                    [892.0, 12.0, 44.0, 44.0],
+                    "",
+                    "launcher-close",
+                    "button.icon",
+                )
+                .with_icon("window-close")
+                .parent(group),
+            );
+            for (i, app) in self.pinned.iter().enumerate() {
+                let id = app_node("pinned", &app.id);
+                scene.push(
+                    Widget::button(
+                        &id,
+                        [24.0 + i as f32 * 182.0, 64.0, 170.0, 68.0],
+                        &short(&app.name, 8),
+                        &id,
+                        "dock.application",
+                    )
+                    .with_icon(app_icon(app))
+                    .parent(group),
+                );
+                intents.insert(id, Intent::Launch(app.id.clone()));
+            }
             let pages = self.apps.len().div_ceil(12).max(1);
             self.page = self.page.min(pages - 1);
             scene.push(
+                Widget::text(
+                    "apps-label",
+                    [24.0, 154.0, 480.0, 28.0],
+                    "全部应用",
+                    "text.secondary",
+                )
+                .parent(group),
+            );
+            scene.push(
                 Widget::button(
                     "page-prev",
-                    [860.0, 18.0, 84.0, 44.0],
-                    "上页",
+                    [756.0, 148.0, 40.0, 36.0],
+                    "",
                     "page-prev",
-                    "button.secondary",
+                    "button.icon",
                 )
-                .enabled(self.page > 0),
+                .with_icon("go-previous")
+                .enabled(self.page > 0)
+                .parent(group),
             );
-            scene.push(Widget::text(
-                "page-label",
-                [956.0, 18.0, 100.0, 44.0],
-                &format!("{}/{}", self.page + 1, pages),
-                "text.secondary",
-            ));
+            scene.push(
+                Widget::text(
+                    "page-label",
+                    [804.0, 154.0, 72.0, 28.0],
+                    &format!("{}/{}", self.page + 1, pages),
+                    "text.secondary",
+                )
+                .parent(group),
+            );
             scene.push(
                 Widget::button(
                     "page-next",
-                    [1072.0, 18.0, 104.0, 44.0],
-                    "下页",
+                    [892.0, 148.0, 40.0, 36.0],
+                    "",
                     "page-next",
-                    "button.secondary",
+                    "button.icon",
                 )
-                .enabled(self.page + 1 < pages),
+                .with_icon("go-next")
+                .enabled(self.page + 1 < pages)
+                .parent(group),
             );
             if self.apps.is_empty() {
-                scene.push(Widget::text(
-                    "apps-empty",
-                    [24.0, 100.0, 1120.0, 80.0],
-                    "未找到可显示的应用",
-                    "text.secondary",
-                ));
+                scene.push(
+                    Widget::text(
+                        "apps-empty",
+                        [24.0, 218.0, 912.0, 40.0],
+                        "未找到可显示的应用",
+                        "text.secondary",
+                    )
+                    .parent(group),
+                );
             }
             for (i, app) in self.apps.iter().skip(self.page * 12).take(12).enumerate() {
                 let id = app_node("application", &app.id);
@@ -301,18 +364,30 @@ impl Model {
                     Widget::button(
                         &id,
                         [
-                            24.0 + (i % 4) as f32 * 292.0,
-                            86.0 + (i / 4) as f32 * 104.0,
-                            276.0,
+                            24.0 + (i % 4) as f32 * 230.0,
+                            202.0 + (i / 4) as f32 * 106.0,
+                            216.0,
                             88.0,
                         ],
-                        &short(&app.name, 17),
+                        &short(&app.name, 12),
                         &id,
                         "dock.application",
                     )
-                    .with_icon(&app.icon),
+                    .with_icon(app_icon(app))
+                    .parent(group),
                 );
                 intents.insert(id, Intent::Launch(app.id.clone()));
+            }
+            if !self.status.is_empty() {
+                scene.push(
+                    Widget::text(
+                        "launcher-status",
+                        [24.0, 540.0, 912.0, 28.0],
+                        &short(&self.status, 52),
+                        "text.secondary",
+                    )
+                    .parent(group),
+                );
             }
         }
         let ids: BTreeSet<_> = scene.widgets.iter().map(|w| w.id.clone()).collect();
@@ -324,6 +399,21 @@ impl Model {
             .collect();
         self.intents = intents;
         scene
+    }
+    pub fn component_command(&mut self, payload: &Value) -> bool {
+        if payload["role"].as_str() != Some("dock") || payload["panel"].as_str() != Some("launcher")
+        {
+            return false;
+        }
+        let visible = match payload["intent"].as_str() {
+            Some("show") => true,
+            Some("hide") => false,
+            Some("toggle") => !self.menu_open,
+            _ => return false,
+        };
+        let changed = visible != self.menu_open;
+        self.menu_open = visible;
+        changed
     }
     pub fn input(&mut self, payload: &Value, cancel: bool) -> (bool, Option<Intent>) {
         let Some(id) = payload["target_node_id"].as_str() else {
@@ -367,6 +457,10 @@ impl Model {
             match id {
                 "launcher" => {
                     self.menu_open = !self.menu_open;
+                    return (true, None);
+                }
+                "launcher-close" => {
+                    self.menu_open = false;
                     return (true, None);
                 }
                 "page-prev" => {
@@ -424,4 +518,12 @@ fn app_node(prefix: &str, id: &str) -> String {
         (hash ^ b as u64).wrapping_mul(0x100000001b3)
     });
     format!("{prefix}-{hash:016x}")
+}
+
+fn app_icon(app: &App) -> &str {
+    if app.icon.is_empty() {
+        "application-x-executable"
+    } else {
+        &app.icon
+    }
 }

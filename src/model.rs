@@ -187,7 +187,7 @@ impl Model {
             taskbar::CENTER_LOGICAL,
             taskbar::CENTER_SIZE,
             taskbar::CENTER_POSITION,
-            "dock_lazy_follow",
+            taskbar::POLICY,
         )
         .with_rotation(taskbar::ROTATION);
         let mut intents = BTreeMap::new();
@@ -209,6 +209,7 @@ impl Model {
                 taskbar::SIDE_SIZE,
                 taskbar::LEFT_POSITION,
             )
+            .with_spatial_policy(taskbar::POLICY)
             .with_rotation(taskbar::ROTATION),
         );
         scene.push(

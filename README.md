@@ -48,3 +48,7 @@ xr-dock --list-pins
 默认 socket 为 `$XDG_RUNTIME_DIR/xr-desktop/shell.sock`。重复 `--apps-dir DIR` 替换默认 XDG 清单目录，重复 `--pin` 显式选择真实应用及顺序；`--list-pins` 只打印匹配结果，不连接 XR。所需能力为 core/scene/snapshot/input/window/workspace/system v1，缺少时明确失败。
 
 stdout 记录握手、快照/scene revision、输入、意图 request ID 与退出。真实启动、多实例与跨工作区焦点、分钟更新和三岛画面须在选定 Shell/窗口服务组合验证；本地构建和目录读取不等于原生渲染或操作验收通过。
+
+左信息岛与中央应用岛通过 `taskbar::POLICY` 共享 Shell 的唯一跟随锚点；
+独立空间组显式声明 policy，不再绕开中央岛变换。需要 Shell 0.2.9 的
+`scene.spatial-policy.v1`，操作时由 Shell 冻结整个三岛，不由客户端各自计时。

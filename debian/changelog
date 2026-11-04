@@ -1,3 +1,10 @@
+xr-dock (0.2.3) unstable; urgency=medium
+
+  * Match Qingkong island spacing, typography and application icon proportions.
+  * Reserve an explicit unavailable weather reading without inventing conditions.
+
+ -- bits <bigbits@hackx.cc>  Wed, 04 Nov 2026 20:35:37 +0800
+
 xr-dock (0.2.2) unstable; urgency=medium
 
   * Follow the Qingkong control-library artwork with separate clock/app islands.

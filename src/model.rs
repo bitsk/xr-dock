@@ -222,7 +222,7 @@ impl Model {
         scene.push(
             Widget::text(
                 "local-clock",
-                [24.0, 12.0, 122.0, 48.0],
+                [24.0, 9.0, 132.0, 54.0],
                 &self.clock.time,
                 "taskbar.clock",
             )
@@ -231,7 +231,7 @@ impl Model {
         scene.push(
             Widget::card(
                 "clock-separator",
-                [156.0, 20.0, 1.0, 32.0],
+                [168.0, 19.0, 1.0, 34.0],
                 "taskbar.separator",
             )
             .parent("data-island"),
@@ -239,25 +239,45 @@ impl Model {
         scene.push(
             Widget::text(
                 "local-date",
-                [176.0, 21.0, 160.0, 30.0],
+                [186.0, 17.0, 142.0, 38.0],
                 &self.clock.date_weekday,
                 "taskbar.caption",
+            )
+            .parent("data-island"),
+        );
+        // No weather provider is installed: reserve the reference's weather slot
+        // with an explicitly unavailable reading rather than a sample condition.
+        scene.push(
+            Widget::icon(
+                "local-weather",
+                [338., 19., 32., 32.],
+                "ukui-xr-weather-unavailable",
+                "taskbar.weather",
+            )
+            .parent("data-island"),
+        );
+        scene.push(
+            Widget::text(
+                "local-weather-temperature",
+                [380., 16., 42., 40.],
+                "—°",
+                "taskbar.weather",
             )
             .parent("data-island"),
         );
         scene.push(
             Widget::button(
                 "launcher",
-                [12.0, 6.0, 52.0, 56.0],
+                [18.0, 8.0, 56.0, 56.0],
                 "",
                 "open-launcher",
                 "dock.app-icon",
             )
-            .with_icon("view-app-grid"),
+            .with_icon("ukui-xr-launcher"),
         );
         scene.push(Widget::card(
             "launcher-separator",
-            [72.0, 20.0, 1.0, 32.0],
+            [88.0, 18.0, 1.0, 36.0],
             "taskbar.separator",
         ));
         let groups = self.task_groups();
@@ -796,7 +816,7 @@ fn app_button(scene: &mut Scene, id: &str, x: f32, icon: &str, focused: bool, ru
     if running {
         scene.push(Widget::card(
             &format!("{id}-running"),
-            [x + 25.75, 64.0, 4.5, 4.5],
+            [x + 25., 64.0, 6., 6.],
             "taskbar.running",
         ));
     }

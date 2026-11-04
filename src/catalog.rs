@@ -177,6 +177,7 @@ pub fn pinned(apps: &[App], requested: &[String]) -> Vec<App> {
                 "firefox",
                 "firefox-esr",
                 "org.mozilla.firefox",
+                "net.mozilla.firefox",
                 "chromium",
                 "chromium-browser",
                 "google-chrome",

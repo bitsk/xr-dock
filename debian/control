@@ -2,13 +2,13 @@ Source: xr-dock
 Section: x11
 Priority: optional
 Maintainer: openKylin XR SIG <xr@lists.openkylin.top>
-Build-Depends: debhelper-compat (= 13), cargo (>= 1.88), rustc (>= 1.88), python3, librust-xr-shell-protocols-dev (>= 0.2.9), librust-xr-shell-protocols-dev (<< 0.3.0), librust-xr-spatial-kit-dev (>= 0.2.4), librust-xr-spatial-kit-dev (<< 0.3.0)
+Build-Depends: debhelper-compat (= 13), cargo (>= 1.88), rustc (>= 1.88), python3, librust-xr-shell-protocols-dev (>= 0.2.17), librust-xr-shell-protocols-dev (<< 0.3.0), librust-xr-spatial-kit-dev (>= 0.2.5), librust-xr-spatial-kit-dev (<< 0.3.0)
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
 
 Package: xr-dock
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, xr-shell (>= 0.2.9)
+Depends: ${shlibs:Depends}, ${misc:Depends}, xr-shell (>= 0.2.17)
 Recommends: xr-spatial-style-ukui
 Description: Independent UKUI XR application and task dock
  Uses the Shell scene SDK for applications, tasks and workspaces.

@@ -359,11 +359,13 @@ impl Model {
         }
         if self.menu_open {
             let group = "launcher-space";
-            scene.push(Widget::spatial_group(
+            scene.push(Widget::horizon_panel(
                 group,
-                [960.0, 584.0],
+                [960., 584.],
                 [0.96, 0.584],
-                [0.0, 1.25, -1.68],
+                0.,
+                -10.,
+                1.72,
             ));
             scene.push(
                 Widget::card(
@@ -518,11 +520,13 @@ impl Model {
                 let panel = "window-picker";
                 let pages = group.windows.len().div_ceil(6).max(1);
                 self.window_page = self.window_page.min(pages - 1);
-                scene.push(Widget::spatial_group(
+                scene.push(Widget::horizon_panel(
                     panel,
-                    [520.0, 400.0],
+                    [520., 400.],
                     [0.65, 0.5],
-                    [0.0, 1.2, -1.68],
+                    0.,
+                    -10.,
+                    1.72,
                 ));
                 scene.push(
                     Widget::card(

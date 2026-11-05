@@ -132,6 +132,8 @@ fn connected(socket: &Path, model: &mut Model, running: &dyn Fn() -> bool) -> Re
             "core.v1",
             "scene.v1",
             "scene.spatial-policy.v1",
+            "scene.horizon-spawn.v1",
+            "scene.spherical-placement.v1",
             "snapshot.v1",
             "input.v1",
             "window.v1",

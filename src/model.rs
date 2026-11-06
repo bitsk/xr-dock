@@ -364,7 +364,7 @@ impl Model {
                 [960., 584.],
                 [0.96, 0.584],
                 0.,
-                -10.,
+                8., // Upper popup band; the keyboard owns the lower band.
                 1.72,
             ));
             scene.push(
@@ -525,7 +525,7 @@ impl Model {
                     [520., 400.],
                     [0.65, 0.5],
                     0.,
-                    -10.,
+                    8.,
                     1.72,
                 ));
                 scene.push(

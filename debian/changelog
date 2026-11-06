@@ -1,3 +1,9 @@
+xr-dock (0.2.7) unstable; urgency=medium
+
+  * Place launcher and window picker in the upper popup band above the keyboard.
+
+ -- bits <bigbits@hackx.cc>  Fri, 06 Nov 2026 10:50:38 +0800
+
 xr-dock (0.2.6) unstable; urgency=medium
 
   * Summon the launcher and window picker in the current binocular horizon.

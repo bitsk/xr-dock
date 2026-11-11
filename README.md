@@ -52,3 +52,5 @@ stdout 记录握手、快照/scene revision、输入、意图 request ID 与退�
 左信息岛与中央应用岛通过 `taskbar::POLICY` 共享 Shell 的唯一跟随锚点；
 独立空间组显式声明 policy，不再绕开中央岛变换。需要 Shell 0.2.9 的
 `scene.spatial-policy.v1`，操作时由 Shell 冻结整个三岛，不由客户端各自计时。
+
+信息岛宽340px，日期与未接入天气的明确未知状态采用上下两行。应用按钮使用Kit的半透明托盘样式，真实运行状态用14×4px冰蓝胶囊条表示；光晕和悬停由Shell绘制。

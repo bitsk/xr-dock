@@ -223,7 +223,7 @@ impl Model {
         scene.push(
             Widget::text(
                 "local-clock",
-                [24.0, 9.0, 132.0, 54.0],
+                [18.0, 9.0, 116.0, 54.0],
                 &self.clock.time,
                 "taskbar.clock",
             )
@@ -232,7 +232,7 @@ impl Model {
         scene.push(
             Widget::card(
                 "clock-separator",
-                [168.0, 19.0, 1.0, 34.0],
+                [146.0, 19.0, 1.0, 34.0],
                 "taskbar.separator",
             )
             .parent("data-island"),
@@ -240,7 +240,7 @@ impl Model {
         scene.push(
             Widget::text(
                 "local-date",
-                [186.0, 17.0, 142.0, 38.0],
+                [162.0, 7.0, 164.0, 30.0],
                 &self.clock.date_weekday,
                 "taskbar.caption",
             )
@@ -251,7 +251,7 @@ impl Model {
         scene.push(
             Widget::icon(
                 "local-weather",
-                [338., 19., 32., 32.],
+                [164., 39., 24., 24.],
                 "ukui-xr-weather-unavailable",
                 "taskbar.weather",
             )
@@ -260,7 +260,7 @@ impl Model {
         scene.push(
             Widget::text(
                 "local-weather-temperature",
-                [380., 16., 42., 40.],
+                [198., 35., 64., 32.],
                 "—°",
                 "taskbar.weather",
             )
@@ -821,7 +821,7 @@ fn app_button(scene: &mut Scene, id: &str, x: f32, icon: &str, focused: bool, ru
     if running {
         scene.push(Widget::card(
             &format!("{id}-running"),
-            [x + 25., 64.0, 6., 6.],
+            [x + 21., 64.0, 14., 4.],
             "taskbar.running",
         ));
     }

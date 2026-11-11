@@ -1,3 +1,10 @@
+xr-dock (0.2.8) unstable; urgency=medium
+
+  * Compact the clock, date and unavailable-weather layout.
+  * Render live running indicators as 14x4px glowing capsules.
+
+ -- bits <bigbits@hackx.cc>  Wed, 11 Nov 2026 18:55:54 +0800
+
 xr-dock (0.2.7) unstable; urgency=medium
 
   * Place launcher and window picker in the upper popup band above the keyboard.

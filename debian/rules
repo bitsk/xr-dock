@@ -7,7 +7,14 @@ endif
 	dh $@ --buildsystem=none
 override_dh_auto_build:
 	CARGO_TARGET_DIR="$(CURDIR)/target" python3 tools/build.py
+ifneq ($(strip $(XR_CARGO_TARGET)),)
+	mkdir -p target/release
+	cp target/$(XR_CARGO_TARGET)/release/xr-dock target/release/
+endif
 override_dh_auto_test:
 	@echo "Real Shell/Wayland interaction acceptance is performed in the development guest."
 override_dh_auto_clean:
 	rm -rf target build/cargo-source
+
+override_dh_shlibdeps:
+	dh_shlibdeps $(if $(XR_CROSS_LIBDIR),-l$(XR_CROSS_LIBDIR)) -- $(if $(XR_CROSS_SHLIBS),-L$(XR_CROSS_SHLIBS))

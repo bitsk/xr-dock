@@ -1,3 +1,9 @@
+xr-dock (0.2.9) unstable; urgency=medium
+
+  * Support the canonical locked ARM64 package build.
+
+ -- bits <bigbits@hackx.cc>  Thu, 12 Nov 2026 19:14:34 +0800
+
 xr-dock (0.2.8) unstable; urgency=medium
 
   * Compact the clock, date and unavailable-weather layout.

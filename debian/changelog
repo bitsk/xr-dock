@@ -1,3 +1,9 @@
+xr-dock (0.2.10) unstable; urgency=medium
+
+  * Show asynchronous application launch failures in the visible launcher.
+
+ -- bits <bigbits@hackx.cc>  Thu, 19 Nov 2026 00:02:25 +0800
+
 xr-dock (0.2.9+xr1) unstable; urgency=medium
 
   * Align Kit and Shell SDK package bounds with the current desktop stack.

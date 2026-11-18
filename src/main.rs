@@ -238,11 +238,17 @@ fn connected(socket: &Path, model: &mut Model, running: &dyn Fn() -> bool) -> Re
                     }
                 }
                 "Error" => {
+                    // An application closes the launcher when activated. Reopen it
+                    // for an asynchronous failure so the message is visible.
+                    model.menu_open = true;
                     model.status = payload["message"]
                         .as_str()
                         .or_else(|| payload["description"].as_str())
                         .unwrap_or("操作失败")
                         .into();
+                    for app in &model.apps {
+                        model.status = model.status.replace(&app.id, &app.name);
+                    }
                     dirty = true;
                     eprintln!("XR_DOCK_SERVER_ERROR={payload}");
                 }

@@ -1,6 +1,6 @@
 [package]
 name = "xr-dock"
-version = "0.2.10"
+version = "0.2.11"
 edition = "2024"
 license = "GPL-3.0-or-later"
 description = "Independent UKUI XR application and task dock"

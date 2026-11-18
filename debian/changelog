@@ -1,3 +1,9 @@
+xr-dock (0.2.11) unstable; urgency=medium
+
+  * Activate mapped application windows from the menu and restore minimized windows.
+
+ -- bits <bigbits@hackx.cc>  Thu, 19 Nov 2026 00:38:54 +0800
+
 xr-dock (0.2.10) unstable; urgency=medium
 
   * Show asynchronous application launch failures in the visible launcher.

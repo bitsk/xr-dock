@@ -19,6 +19,8 @@ pub struct Window {
     #[serde(default)]
     pub title: String,
     #[serde(default)]
+    pub mapped: bool,
+    #[serde(default)]
     pub workspace: u32,
     #[serde(default)]
     pub focused: bool,
@@ -99,7 +101,7 @@ impl Model {
         let windows: Vec<Window> =
             serde_json::from_value::<Vec<Window>>(payload["windows"].clone())?
                 .into_iter()
-                .filter(|w| w.role.is_empty() || w.role == "toplevel")
+                .filter(|w| w.mapped && (w.role.is_empty() || w.role == "toplevel"))
                 .collect();
         let changed = self.state_revision.is_none()
             || windows != self.windows
@@ -165,6 +167,30 @@ impl Model {
         } else {
             self.pending_focus = None;
             Some(Intent::Focus(window))
+        }
+    }
+    fn launch_or_focus(&mut self, app_id: String) -> Option<Intent> {
+        let wm_class = self
+            .apps
+            .iter()
+            .find(|app| app.id == app_id)
+            .map(|app| app.startup_wm_class.to_lowercase())
+            .unwrap_or_default();
+        // A clicked desktop entry explicitly declares its activation class.
+        // This also handles multiple launchers belonging to one Office process,
+        // without inventing a desktop ID for an ambiguous running task group.
+        let group = self.task_groups().into_iter().find(|group| {
+            group.key == app_id
+                || (!wm_class.is_empty()
+                    && group
+                        .windows
+                        .iter()
+                        .any(|window| window.app_id.to_lowercase() == wm_class))
+        });
+        if let Some(group) = group {
+            self.activate_group(&group.key)
+        } else {
+            Some(Intent::Launch(app_id))
         }
     }
     fn activate_group(&mut self, key: &str) -> Option<Intent> {
@@ -744,6 +770,7 @@ impl Model {
                         return (true, intent);
                     }
                     let intent = match self.intents.get(id).cloned() {
+                        Some(Intent::Launch(app_id)) => self.launch_or_focus(app_id),
                         Some(Intent::Focus(window)) => self.choose_window(window),
                         Some(Intent::Workspace(workspace)) => {
                             self.pending_focus = None;

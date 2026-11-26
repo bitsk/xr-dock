@@ -161,6 +161,8 @@ pub fn pinned(apps: &[App], requested: &[String]) -> Vec<App> {
     let roles: &[(&[&str], &[&str], &str)] = &[
         (
             &[
+                "org.openkylin.XRFiles",
+                "xr-files",
                 "peony",
                 "org.gnome.nautilus",
                 "org.gnome.files",
@@ -268,4 +270,33 @@ pub fn pinned(apps: &[App], requested: &[String]) -> Vec<App> {
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pinned_prefers_xr_files_ahead_of_legacy_2d_peony() {
+        let apps = vec![
+            App {
+                id: "peony.desktop".into(),
+                name: "文件管理器".into(),
+                icon: "system-file-manager".into(),
+                categories: vec!["FileManager".into()],
+                startup_wm_class: "peony".into(),
+            },
+            App {
+                id: "org.openkylin.XRFiles.desktop".into(),
+                name: "空间文件".into(),
+                icon: "system-file-manager".into(),
+                categories: vec!["System".into(), "FileManager".into()],
+                startup_wm_class: "xr-files".into(),
+            },
+        ];
+        let pins = pinned(&apps, &[]);
+        assert_eq!(pins.len(), 1);
+        assert_eq!(pins[0].id, "org.openkylin.XRFiles.desktop");
+        assert_eq!(pins[0].icon, "ukui-xr-files");
+    }
 }

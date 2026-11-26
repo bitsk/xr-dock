@@ -7,7 +7,7 @@
 ## 行为与真实状态
 
 - 左信息岛显示真实本地 HH:MM、日期和星期，使用系统时区；仅在分钟变化时触发时钟 scene 更新。没有天气提供者时不展示温度或天气图标。
-- 中央启动器始终可用。默认固定应用按文件管理器、浏览器、文档编辑器、视频、终端、设置的顺序，从真实可见 `.desktop` 文件匹配，最多六项；缺失角色不占假图标。支持 Peony、Firefox、Pluma、QTerminal、UKUI Control Center 等真实 ID 与分类回退。
+- 中央启动器始终可用。默认固定应用按文件管理器、浏览器、文档编辑器、视频、终端、设置的顺序，从真实可见 `.desktop` 文件匹配，最多六项；缺失角色不占假图标。文件管理器槽位优先匹配原生三维 `空间文件`（`org.openkylin.XRFiles.desktop` / `xr-files`），未安装时回退至 Peony 等传统桌面文件管理器，其余槽位支持 Firefox、Pluma、QTerminal、UKUI Control Center 等真实 ID 与分类回退。
 - 已匹配角色使用 Kit 的 `ukui-xr-files/browser/document/media/terminal/settings` 图稿语义资源；自选 pin 和其他运行应用继续使用实际主题图标。中央按钮无文字，图标尺寸由 `dock.app-icon` 样式限定；焦点使用 `dock.active-icon`，独立蓝点只表示真实运行状态。
 - Shell Snapshot/连续 StateChanged 是窗口和工作区的唯一权威。仅 toplevel 聚合为应用图标，popup、subsurface 和输入法候选不成为任务。聚合匹配真实 desktop ID、StartupWMClass 或唯一名称后缀；不构造虚假的 launch ID。
 - 固定应用始终可见，额外运行应用分页；当页实际图标在应用区居中排列，56px 按钮间隙最高20px，分页箭头两侧留边。单窗口点击直接聚焦；多实例按需展开窗口选择面板，每个真实窗口均有分页入口，任务栏不默认展示大窗口标题或逐应用关闭 X。窗口关闭由 Shell 的窗口 Orb 处理，任务图标随实际快照回收。
